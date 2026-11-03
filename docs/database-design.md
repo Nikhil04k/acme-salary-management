@@ -170,77 +170,81 @@ These are outside the scope of the initial salary management product.
 - ActiveRecord.
 - Redis and Sidekiq for background processing.
 
+## 13. Entity Relationship Diagram
+
+```mermaid
 erDiagram
-  USERS ||--o{ SALARY_HISTORIES : creates
-  USERS ||--o{ AUDIT_LOGS : performs
+    USERS ||--o{ SALARY_HISTORIES : creates
+    USERS ||--o{ AUDIT_LOGS : performs
 
-  COUNTRIES ||--o{ EMPLOYEES : contains
-  DEPARTMENTS ||--o{ EMPLOYEES : organizes
-  JOB_TITLES ||--o{ EMPLOYEES : defines
+    COUNTRIES ||--o{ EMPLOYEES : contains
+    DEPARTMENTS ||--o{ EMPLOYEES : organizes
+    JOB_TITLES ||--o{ EMPLOYEES : defines
 
-  EMPLOYEES ||--o{ SALARY_HISTORIES : has
-  CURRENCIES ||--o{ SALARY_HISTORIES : uses
+    EMPLOYEES ||--o{ SALARY_HISTORIES : has
+    CURRENCIES ||--o{ SALARY_HISTORIES : uses
 
-  USERS {
-      bigint id PK
-      string email UK
-      string encrypted_password
-      string role
-  }
+    USERS {
+        bigint id PK
+        string email UK
+        string encrypted_password
+        string role
+    }
 
-  EMPLOYEES {
-      bigint id PK
-      string employee_number UK
-      string first_name
-      string last_name
-      string email UK
-      bigint country_id FK
-      bigint department_id FK
-      bigint job_title_id FK
-      string employment_status
-      date hired_on
-      date terminated_on
-  }
+    EMPLOYEES {
+        bigint id PK
+        string employee_number UK
+        string first_name
+        string last_name
+        string email UK
+        bigint country_id FK
+        bigint department_id FK
+        bigint job_title_id FK
+        string employment_status
+        date hired_on
+        date terminated_on
+    }
 
-  COUNTRIES {
-      bigint id PK
-      string name
-      string iso_code UK
-  }
+    COUNTRIES {
+        bigint id PK
+        string name
+        string iso_code UK
+    }
 
-  DEPARTMENTS {
-      bigint id PK
-      string name UK
-  }
+    DEPARTMENTS {
+        bigint id PK
+        string name UK
+    }
 
-  JOB_TITLES {
-      bigint id PK
-      string name UK
-  }
+    JOB_TITLES {
+        bigint id PK
+        string name UK
+    }
 
-  CURRENCIES {
-      string code PK
-      string name
-      int decimal_places
-  }
+    CURRENCIES {
+        string code PK
+        string name
+        int decimal_places
+    }
 
-  SALARY_HISTORIES {
-      bigint id PK
-      bigint employee_id FK
-      bigint created_by_id FK
-      decimal annual_base_salary
-      decimal annual_bonus
-      decimal annual_allowances
-      string currency_code FK
-      date effective_from
-      date effective_to
-  }
+    SALARY_HISTORIES {
+        bigint id PK
+        bigint employee_id FK
+        bigint created_by_id FK
+        decimal annual_base_salary
+        decimal annual_bonus
+        decimal annual_allowances
+        string currency_code FK
+        date effective_from
+        date effective_to
+    }
 
-  AUDIT_LOGS {
-      bigint id PK
-      bigint user_id FK
-      string auditable_type
-      bigint auditable_id
-      string action
-      json changes
-  }
+    AUDIT_LOGS {
+        bigint id PK
+        bigint user_id FK
+        string auditable_type
+        bigint auditable_id
+        string action
+        json changes
+    }
+```
