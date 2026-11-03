@@ -5,6 +5,8 @@ class Employee < ApplicationRecord
   belongs_to :department
   belongs_to :job_title
 
+  has_many :salary_histories, dependent: :restrict_with_error
+
   validates :employee_number,
             presence: true,
             uniqueness: true

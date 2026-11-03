@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_11_03_090903) do
+ActiveRecord::Schema[8.0].define(version: 2026_11_03_094250) do
   create_table "countries", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.string "name", limit: 100, null: false
     t.string "iso_code", limit: 2, null: false
@@ -64,6 +64,28 @@ ActiveRecord::Schema[8.0].define(version: 2026_11_03_090903) do
     t.index ["name"], name: "index_job_titles_on_name", unique: true
   end
 
+  create_table "salary_histories", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.bigint "employee_id", null: false
+    t.bigint "created_by_id", null: false
+    t.decimal "annual_base_salary", precision: 19, scale: 4, null: false
+    t.decimal "annual_bonus", precision: 19, scale: 4, default: "0.0", null: false
+    t.decimal "annual_allowances", precision: 19, scale: 4, default: "0.0", null: false
+    t.string "currency_code", limit: 3, null: false
+    t.date "effective_from", null: false
+    t.date "effective_to"
+    t.string "change_reason", limit: 500
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "cancelled_at"
+    t.bigint "cancelled_by_id"
+    t.index ["cancelled_by_id"], name: "index_salary_histories_on_cancelled_by_id"
+    t.index ["created_by_id"], name: "index_salary_histories_on_created_by_id"
+    t.index ["currency_code", "effective_from"], name: "index_salary_histories_on_currency_and_effective_from"
+    t.index ["employee_id", "effective_from"], name: "index_salary_histories_on_employee_and_effective_from"
+    t.check_constraint "(`annual_base_salary` >= 0) and (`annual_bonus` >= 0) and (`annual_allowances` >= 0)", name: "check_salary_histories_amounts_non_negative"
+    t.check_constraint "(`effective_to` is null) or (`effective_to` > `effective_from`)", name: "check_salary_histories_effective_dates"
+  end
+
   create_table "users", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
@@ -80,4 +102,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_11_03_090903) do
   add_foreign_key "employees", "countries"
   add_foreign_key "employees", "departments"
   add_foreign_key "employees", "job_titles"
+  add_foreign_key "salary_histories", "currencies", column: "currency_code", primary_key: "code"
+  add_foreign_key "salary_histories", "employees"
+  add_foreign_key "salary_histories", "users", column: "cancelled_by_id"
+  add_foreign_key "salary_histories", "users", column: "created_by_id"
 end
