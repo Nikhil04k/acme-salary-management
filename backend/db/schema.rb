@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_11_03_090146) do
+ActiveRecord::Schema[8.0].define(version: 2026_11_03_090903) do
   create_table "countries", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.string "name", limit: 100, null: false
     t.string "iso_code", limit: 2, null: false
@@ -35,6 +35,28 @@ ActiveRecord::Schema[8.0].define(version: 2026_11_03_090146) do
     t.index ["name"], name: "index_departments_on_name", unique: true
   end
 
+  create_table "employees", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "employee_number", limit: 20, null: false
+    t.string "first_name", limit: 100, null: false
+    t.string "last_name", limit: 100, null: false
+    t.string "email", null: false
+    t.bigint "country_id", null: false
+    t.bigint "department_id", null: false
+    t.bigint "job_title_id", null: false
+    t.string "employment_status", default: "active", null: false
+    t.date "hired_on", null: false
+    t.date "terminated_on"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["country_id", "department_id", "employment_status"], name: "index_employees_on_country_department_status"
+    t.index ["country_id"], name: "index_employees_on_country_id"
+    t.index ["department_id"], name: "index_employees_on_department_id"
+    t.index ["email"], name: "index_employees_on_email", unique: true
+    t.index ["employee_number"], name: "index_employees_on_employee_number", unique: true
+    t.index ["employment_status"], name: "index_employees_on_employment_status"
+    t.index ["job_title_id"], name: "index_employees_on_job_title_id"
+  end
+
   create_table "job_titles", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.string "name", limit: 100, null: false
     t.datetime "created_at", null: false
@@ -54,4 +76,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_11_03_090146) do
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
+
+  add_foreign_key "employees", "countries"
+  add_foreign_key "employees", "departments"
+  add_foreign_key "employees", "job_titles"
 end
