@@ -53,6 +53,17 @@ module SalaryHistories
         )
 
         salary_history = SalaryHistory.create!(attributes)
+
+        AuditLogging::CreateService.new(
+          user: @created_by,
+          auditable: salary_history,
+          action: "create",
+          audited_changes: salary_history.saved_changes.except(
+            "id",
+            "created_at",
+            "updated_at"
+          )
+        ).call
       end
 
       salary_history

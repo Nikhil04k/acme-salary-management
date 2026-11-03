@@ -19,8 +19,9 @@ module SalaryHistories
       cancelled_by_id
     ].freeze
 
-    def initialize(salary_history:, attributes:)
+    def initialize(salary_history:, updated_by:, attributes:)
       @salary_history = salary_history
+      @updated_by = updated_by
       @attributes = attributes.to_h.symbolize_keys
     end
 
@@ -45,6 +46,14 @@ module SalaryHistories
         end
 
         @salary_history.update!(editable_attributes)
+
+        AuditLogging::CreateService.new(
+          user: @updated_by,
+          auditable: @salary_history,
+          action: "update",
+          audited_changes: @salary_history.saved_changes.except("updated_at")
+        ).call
+
         result = @salary_history
       end
 

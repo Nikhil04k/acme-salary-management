@@ -21,6 +21,7 @@ RSpec.describe SalaryHistories::UpdateService do
   def call_service(attributes)
     described_class.new(
       salary_history: salary_history,
+      updated_by: user,
       attributes: attributes
     ).call
   end
@@ -98,6 +99,34 @@ RSpec.describe SalaryHistories::UpdateService do
       )
 
       expect(salary_history.reload.annual_base_salary).to eq(500_000)
+    end
+
+    it "creates an audit log when salary is updated" do
+      expect {
+        call_service(annual_base_salary: 700000)
+      }.to change(AuditLog, :count).by(1)
+
+      audit_log = AuditLog.last
+
+      expect(audit_log.action).to eq("update")
+      expect(audit_log.user).to eq(user)
+      expect(audit_log.auditable).to eq(salary_history)
+      expect(audit_log.audited_changes).to have_key("annual_base_salary")
+    end
+
+    it "rolls back salary update if audit logging fails" do
+      original_salary = salary_history.annual_base_salary
+
+      allow(AuditLog).to receive(:create!).and_raise(
+        ActiveRecord::RecordInvalid.new(AuditLog.new)
+      )
+
+      expect {
+        call_service(annual_base_salary: 700000)
+      }.to raise_error(SalaryHistories::UpdateService::Error)
+
+      expect(salary_history.reload.annual_base_salary).to eq(original_salary)
+      expect(AuditLog.count).to eq(0)
     end
   end
 end

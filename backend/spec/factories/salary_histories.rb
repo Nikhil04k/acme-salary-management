@@ -4,13 +4,11 @@ FactoryBot.define do
     association :created_by, factory: :user
     association :currency
 
-    annual_base_salary { 500_000 }
+    annual_base_salary { 500000 }
     annual_bonus { 0 }
     annual_allowances { 0 }
-
     effective_from { Date.current }
     effective_to { nil }
-
-    change_reason { "Initial salary assignment" }
+    change_reason { "Initial salary" }
   end
 end

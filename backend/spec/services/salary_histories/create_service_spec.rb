@@ -4,6 +4,7 @@ RSpec.describe SalaryHistories::CreateService do
   let(:employee) { create(:employee) }
   let(:user) { create(:user) }
   let(:currency) { create(:currency) }
+  let(:currency) { create(:currency, code: "INR") }
 
   let(:base_attributes) do
     {
@@ -161,6 +162,49 @@ RSpec.describe SalaryHistories::CreateService do
 
       expect(future.reload.effective_from).to eq(Date.new(2026, 1, 1))
       expect(future.effective_to).to be_nil
+    end
+
+    it "creates an audit log for the salary creation" do
+      salary_attributes = {
+        annual_base_salary: 500000,
+        annual_bonus: 0,
+        annual_allowances: 0,
+        currency_code: currency.code,
+        effective_from: Date.current,
+        change_reason: "Initial salary"
+      }
+
+      expect {
+        call_service(salary_attributes)
+      }.to change(AuditLog, :count).by(1)
+
+      audit_log = AuditLog.last
+
+      expect(audit_log.action).to eq("create")
+      expect(audit_log.user).to eq(user)
+      expect(audit_log.auditable).to be_a(SalaryHistory)
+    end
+
+    it "rolls back salary creation if audit logging fails" do
+      salary_attributes = {
+        annual_base_salary: 500000,
+        annual_bonus: 0,
+        annual_allowances: 0,
+        currency_code: currency.code,
+        effective_from: Date.current,
+        change_reason: "Initial salary"
+      }
+
+      allow(AuditLog).to receive(:create!).and_raise(
+        ActiveRecord::RecordInvalid.new(AuditLog.new)
+      )
+
+      expect {
+        call_service(salary_attributes)
+      }.to raise_error(SalaryHistories::CreateService::Error)
+
+      expect(employee.salary_histories.count).to eq(0)
+      expect(AuditLog.count).to eq(0)
     end
   end
 end

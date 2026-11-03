@@ -5,6 +5,8 @@ class User < ApplicationRecord
          foreign_key: :created_by_id,
          dependent: :restrict_with_error
 
+  has_many :audit_logs, dependent: :restrict_with_error
+
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable
 
