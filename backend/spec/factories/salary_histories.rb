@@ -2,7 +2,14 @@ FactoryBot.define do
   factory :salary_history do
     association :employee
     association :created_by, factory: :user
-    association :currency
+    currency do
+      Currency.find_or_create_by!(
+        code: "INR"
+      ) do |record|
+        record.name = "Indian Rupee"
+        record.decimal_places = 2
+      end
+    end
 
     annual_base_salary { 500000 }
     annual_bonus { 0 }
