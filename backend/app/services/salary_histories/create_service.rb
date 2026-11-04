@@ -5,7 +5,7 @@ module SalaryHistories
     def initialize(employee:, created_by:, attributes:)
       @employee = employee
       @created_by = created_by
-      @attributes = attributes
+      @attributes = attributes.to_h.symbolize_keys
     end
 
     def call

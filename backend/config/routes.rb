@@ -6,7 +6,13 @@ Rails.application.routes.draw do
       post "login", to: "sessions#create"
       delete "logout", to: "sessions#destroy"
 
-      resources :employees, only: %i[index show create update]
+      resources :employees, only: %i[index show create update] do
+        resources :salary_histories, only: %i[index show create update] do
+          member do
+            post :cancel
+          end
+        end
+      end
 
       resources :countries, only: [:index]
       resources :departments, only: [:index]
