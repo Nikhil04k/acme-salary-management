@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_11_03_102412) do
+ActiveRecord::Schema[8.0].define(version: 2026_11_03_162802) do
   create_table "audit_logs", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "auditable_type", null: false
@@ -74,6 +74,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_11_03_102412) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["name"], name: "index_job_titles_on_name", unique: true
+  end
+
+  create_table "jwt_denylists", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
+    t.string "jti", null: false
+    t.datetime "exp", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["exp"], name: "index_jwt_denylists_on_exp"
+    t.index ["jti"], name: "index_jwt_denylists_on_jti", unique: true
   end
 
   create_table "salary_histories", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
