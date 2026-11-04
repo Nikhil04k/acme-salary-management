@@ -2,6 +2,8 @@ module Api
   module V1
     class EmployeesController < BaseController
       def index
+        authorize Employee
+
         pagination = EmployeePagination.new(params)
 
         employees = EmployeeQuery.new(params).call
@@ -49,6 +51,8 @@ module Api
           salary_histories: :currency
         ).find(params[:id])
 
+        authorize employee
+
         render json: {
           success: true,
           data: EmployeeDetailsSerializer.new(employee).as_json
@@ -60,6 +64,75 @@ module Api
           error: "Employee not found"
         }, status: :not_found
       end
+
+      def create
+        employee = Employee.new(employee_params)
+
+        authorize employee
+
+        if employee.save
+          render json: {
+            success: true,
+            message: "Employee created successfully",
+            data: EmployeeSerializer.new(employee).as_json
+          }, status: :created
+        else
+          render json: {
+            success: false,
+            errors: employee.errors.full_messages
+          }, status: :unprocessable_entity
+        end
+      end
+
+      def update
+        employee = Employee.find(params[:id])
+
+        authorize employee
+
+        if employee.update(employee_update_params)
+          render json: {
+            success: true,
+            message: "Employee updated successfully",
+            data: EmployeeSerializer.new(employee).as_json
+          }, status: :ok
+        else
+          render json: {
+            success: false,
+            errors: employee.errors.full_messages
+          }, status: :unprocessable_entity
+        end
+      end
+
+      private
+
+        def employee_params
+          params.require(:employee).permit(
+            :employee_number,
+            :first_name,
+            :last_name,
+            :email,
+            :country_id,
+            :department_id,
+            :job_title_id,
+            :employment_status,
+            :hired_on,
+            :terminated_on
+          )
+        end
+
+        def employee_update_params
+          params.require(:employee).permit(
+            :first_name,
+            :last_name,
+            :email,
+            :country_id,
+            :department_id,
+            :job_title_id,
+            :employment_status,
+            :hired_on,
+            :terminated_on
+          )
+        end
     end
   end
 end

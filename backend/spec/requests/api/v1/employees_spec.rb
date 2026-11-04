@@ -418,4 +418,239 @@ RSpec.describe "API V1 Employees", type: :request do
       expect(body["data"]["current_salary"]["id"]).to eq(new_salary.id)
     end
   end
+
+  describe "POST /api/v1/employees" do
+    let(:employee_params) do
+      {
+        employee_number: "ACME-NEW-001",
+        first_name: "Rahul",
+        last_name: "Sharma",
+        email: "rahul.new@acme.com",
+        country_id: country.id,
+        department_id: department.id,
+        job_title_id: job_title.id,
+        employment_status: "active",
+        hired_on: Date.current
+      }
+    end
+
+    it "creates an employee successfully" do
+      expect {
+        post "/api/v1/employees",
+            params: { employee: employee_params },
+            headers: headers
+      }.to change(Employee, :count).by(1)
+
+      expect(response).to have_http_status(:created)
+      expect(response.parsed_body["success"]).to be true
+      expect(response.parsed_body["data"]["employee_number"])
+        .to eq("ACME-NEW-001")
+    end
+
+    it "rejects invalid employee data" do
+      invalid_params = employee_params.merge(email: "invalid-email")
+
+      expect {
+        post "/api/v1/employees",
+            params: { employee: invalid_params },
+            headers: headers
+      }.not_to change(Employee, :count)
+
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    it "rejects duplicate employee numbers" do
+      create(:employee, employee_number: "ACME-NEW-001")
+
+      expect {
+        post "/api/v1/employees",
+            params: { employee: employee_params },
+            headers: headers
+      }.not_to change(Employee, :count)
+
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    it "rejects duplicate email addresses" do
+      create(:employee, email: "rahul.new@acme.com")
+
+      expect {
+        post "/api/v1/employees",
+            params: { employee: employee_params },
+            headers: headers
+      }.not_to change(Employee, :count)
+
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    it "allows admin to create employees" do
+      admin = create(:user, role: "admin")
+      admin_token = post "/api/v1/login",
+                        params: {
+                          user: {
+                            email: admin.email,
+                            password: admin.password
+                          }
+                        }
+
+      admin_headers = {
+        "Authorization" => response.headers["Authorization"],
+        "Accept" => "application/json"
+      }
+
+      expect {
+        post "/api/v1/employees",
+            params: { employee: employee_params.merge(
+              employee_number: "ACME-ADMIN-001",
+              email: "admin.employee@acme.com"
+            ) },
+            headers: admin_headers
+      }.to change(Employee, :count).by(1)
+
+      expect(response).to have_http_status(:created)
+    end
+
+    it "prevents viewers from creating employees" do
+      viewer = create(:user, role: "viewer")
+
+      post "/api/v1/login",
+          params: {
+            user: {
+              email: viewer.email,
+              password: viewer.password
+            }
+          }
+
+      viewer_headers = {
+        "Authorization" => response.headers["Authorization"],
+        "Accept" => "application/json"
+      }
+
+      expect {
+        post "/api/v1/employees",
+            params: { employee: employee_params },
+            headers: viewer_headers
+      }.not_to change(Employee, :count)
+
+      expect(response).to have_http_status(:forbidden)
+    end
+  end
+
+  describe "PATCH /api/v1/employees/:id" do
+    let!(:employee) do
+      create(
+        :employee,
+        country: country,
+        department: department,
+        job_title: job_title
+      )
+    end
+
+    it "updates employee details successfully" do
+      patch "/api/v1/employees/#{employee.id}",
+            params: {
+              employee: {
+                first_name: "Updated",
+                last_name: "Employee"
+              }
+            },
+            headers: headers
+
+      expect(response).to have_http_status(:ok)
+
+      body = response.parsed_body
+
+      expect(body["success"]).to be true
+      expect(body["data"]["first_name"]).to eq("Updated")
+      expect(body["data"]["last_name"]).to eq("Employee")
+
+      expect(employee.reload.first_name).to eq("Updated")
+    end
+
+    it "rejects invalid email addresses" do
+      patch "/api/v1/employees/#{employee.id}",
+            params: {
+              employee: { email: "invalid-email" }
+            },
+            headers: headers
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(employee.reload.email).not_to eq("invalid-email")
+    end
+
+    it "does not allow changing employee number" do
+      original_number = employee.employee_number
+
+      patch "/api/v1/employees/#{employee.id}",
+            params: {
+              employee: { employee_number: "CHANGED-001" }
+            },
+            headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(employee.reload.employee_number).to eq(original_number)
+    end
+
+    it "returns 404 for a nonexistent employee" do
+      patch "/api/v1/employees/999999999",
+            params: {
+              employee: { first_name: "Updated" }
+            },
+            headers: headers
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "allows admin to update employees" do
+      admin = create(:user, role: "admin")
+
+      post "/api/v1/login",
+          params: {
+            user: {
+              email: admin.email,
+              password: admin.password
+            }
+          }
+
+      admin_headers = {
+        "Authorization" => response.headers["Authorization"],
+        "Accept" => "application/json"
+      }
+
+      patch "/api/v1/employees/#{employee.id}",
+            params: {
+              employee: { first_name: "AdminUpdated" }
+            },
+            headers: admin_headers
+
+      expect(response).to have_http_status(:ok)
+      expect(employee.reload.first_name).to eq("AdminUpdated")
+    end
+
+    it "prevents viewers from updating employees" do
+      viewer = create(:user, role: "viewer")
+
+      post "/api/v1/login",
+          params: {
+            user: {
+              email: viewer.email,
+              password: viewer.password
+            }
+          }
+
+      viewer_headers = {
+        "Authorization" => response.headers["Authorization"],
+        "Accept" => "application/json"
+      }
+
+      patch "/api/v1/employees/#{employee.id}",
+            params: {
+              employee: { first_name: "ViewerUpdated" }
+            },
+            headers: viewer_headers
+
+      expect(response).to have_http_status(:forbidden)
+      expect(employee.reload.first_name).not_to eq("ViewerUpdated")
+    end
+  end
 end
