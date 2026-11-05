@@ -1,10 +1,13 @@
 
 import { useEffect, useState } from 'react'
+
 import employeeService from '../services/employeeService'
 import referenceDataService from '../services/referenceDataService'
+import dashboardService from '../services/dashboardService'
 
 function ReportsPage() {
   const [employees, setEmployees] = useState([])
+
   const [pagination, setPagination] = useState({
     current_page: 1,
     per_page: 20,
@@ -15,6 +18,7 @@ function ReportsPage() {
   const [countries, setCountries] = useState([])
   const [departments, setDepartments] = useState([])
   const [jobTitles, setJobTitles] = useState([])
+  const [currencies, setCurrencies] = useState([])
 
   const [filters, setFilters] = useState({
     search: '',
@@ -24,23 +28,45 @@ function ReportsPage() {
     employment_status: '',
   })
 
+  const [salaryAnalytics, setSalaryAnalytics] = useState({
+    by_currency: [],
+    by_department: [],
+  })
+
+  const [employeeDistribution, setEmployeeDistribution] = useState({
+    by_country: [],
+    by_department: [],
+    by_job_title: [],
+    by_status: {},
+  })
+
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
-  const [error, setError] = useState('')
+  const [analyticsLoading, setAnalyticsLoading] = useState(true)
 
+  const [error, setError] = useState('')
+  const [analyticsError, setAnalyticsError] = useState('')
+
+  // Load reference data
   useEffect(() => {
     const loadReferenceData = async () => {
       try {
-        const [countryData, departmentData, jobTitleData] =
-          await Promise.all([
-            referenceDataService.getCountries(),
-            referenceDataService.getDepartments(),
-            referenceDataService.getJobTitles(),
-          ])
+        const [
+          countryData,
+          departmentData,
+          jobTitleData,
+          currencyData,
+        ] = await Promise.all([
+          referenceDataService.getCountries(),
+          referenceDataService.getDepartments(),
+          referenceDataService.getJobTitles(),
+          referenceDataService.getCurrencies(),
+        ])
 
         setCountries(countryData)
         setDepartments(departmentData)
         setJobTitles(jobTitleData)
+        setCurrencies(currencyData)
       } catch (err) {
         setError(
           err.response?.data?.error ||
@@ -52,6 +78,7 @@ function ReportsPage() {
     loadReferenceData()
   }, [])
 
+  // Fetch employee report
   const fetchEmployees = async (page = 1, currentFilters = filters) => {
     setLoading(true)
     setError('')
@@ -75,10 +102,39 @@ function ReportsPage() {
     }
   }
 
+  // Initial employee report
   useEffect(() => {
     fetchEmployees(1)
   }, [])
 
+  // Fetch salary and employee analytics
+  useEffect(() => {
+    const fetchReportAnalytics = async () => {
+      setAnalyticsLoading(true)
+      setAnalyticsError('')
+
+      try {
+        const [salaryData, distributionData] = await Promise.all([
+          dashboardService.getSalaryAnalytics(),
+          dashboardService.getEmployeeDistribution(),
+        ])
+
+        setSalaryAnalytics(salaryData)
+        setEmployeeDistribution(distributionData)
+      } catch (err) {
+        setAnalyticsError(
+          err.response?.data?.error ||
+          'Unable to load salary and department reports'
+        )
+      } finally {
+        setAnalyticsLoading(false)
+      }
+    }
+
+    fetchReportAnalytics()
+  }, [])
+
+  // Filter handlers
   const handleFilterChange = (event) => {
     const { name, value } = event.target
 
@@ -105,6 +161,7 @@ function ReportsPage() {
     fetchEmployees(1, emptyFilters)
   }
 
+  // Export employee report
   const handleExport = async () => {
     setExporting(true)
     setError('')
@@ -133,6 +190,7 @@ function ReportsPage() {
     }
   }
 
+  // Formatting helpers
   const formatDate = (date) => {
     if (!date) return '—'
 
@@ -143,8 +201,50 @@ function ReportsPage() {
     })
   }
 
+  const formatNumber = (value) => {
+    return Number(value || 0).toLocaleString('en-IN')
+  }
+
+  const formatAmount = (amount, currencyCode) => {
+    const currency = currencies.find(
+      (item) => item.code === currencyCode
+    )
+
+    const decimals = currency?.decimal_places ?? 2
+
+    const value = Number(amount || 0).toLocaleString('en-IN', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    })
+
+    return `${currencyCode} ${value}`
+  }
+
+  const getBarWidth = (value, maximum) => {
+    if (!maximum || Number(maximum) <= 0) return 0
+
+    return Math.max(
+      (Number(value) / Number(maximum)) * 100,
+      2
+    )
+  }
+
   const inputClass =
     'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'
+
+  // Group department compensation by currency
+  const departmentSalaryGroups = salaryAnalytics.by_department.reduce(
+    (groups, item) => {
+      if (!groups[item.currency]) {
+        groups[item.currency] = []
+      }
+
+      groups[item.currency].push(item)
+
+      return groups
+    },
+    {}
+  )
 
   return (
     <div className="space-y-6">
@@ -171,7 +271,298 @@ function ReportsPage() {
         </button>
       </div>
 
-      {/* Report summary */}
+      {/* Salary Analytics */}
+      <div className="space-y-6">
+
+        <div>
+          <h2 className="text-xl font-bold text-slate-800">
+            Salary Analytics
+          </h2>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Compensation overview grouped by currency and department
+          </p>
+        </div>
+
+        {analyticsError && (
+          <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
+            {analyticsError}
+          </div>
+        )}
+
+        {analyticsLoading ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-500">
+            Loading salary analytics...
+          </div>
+        ) : (
+          <>
+            {/* Compensation by Currency */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <h3 className="mb-4 text-lg font-semibold text-slate-800">
+                Compensation by Currency
+              </h3>
+
+              {salaryAnalytics.by_currency.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  No salary data available.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[850px] text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3">Currency</th>
+                        <th className="px-4 py-3">Employees</th>
+                        <th className="px-4 py-3">Average</th>
+                        <th className="px-4 py-3">Minimum</th>
+                        <th className="px-4 py-3">Maximum</th>
+                        <th className="px-4 py-3">Total</th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-slate-100">
+                      {salaryAnalytics.by_currency.map((item) => (
+                        <tr
+                          key={item.currency}
+                          className="hover:bg-slate-50"
+                        >
+                          <td className="px-4 py-4 font-semibold text-slate-800">
+                            {item.currency}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            {formatNumber(item.employee_count)}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            {formatAmount(
+                              item.average_compensation,
+                              item.currency
+                            )}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            {formatAmount(
+                              item.minimum_compensation,
+                              item.currency
+                            )}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            {formatAmount(
+                              item.maximum_compensation,
+                              item.currency
+                            )}
+                          </td>
+
+                          <td className="px-4 py-4 font-medium">
+                            {formatAmount(
+                              item.total_compensation,
+                              item.currency
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <p className="mt-4 text-xs text-slate-500">
+                Amounts are annual compensation and are grouped by
+                currency. Different currencies are not combined.
+              </p>
+            </div>
+
+            {/* Department-wise Average Compensation */}
+            <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <h3 className="mb-4 text-lg font-semibold text-slate-800">
+                Department-wise Average Compensation
+              </h3>
+
+              {salaryAnalytics.by_department.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  No department salary data available.
+                </p>
+              ) : (
+                <div className="space-y-6">
+                  {Object.entries(departmentSalaryGroups).map(
+                    ([currency, items]) => {
+                      const maximum = Math.max(
+                        ...items.map((item) =>
+                          Number(item.average_compensation || 0)
+                        )
+                      )
+
+                      return (
+                        <div key={currency}>
+                          <h4 className="mb-3 text-sm font-semibold text-slate-700">
+                            {currency}
+                          </h4>
+
+                          <div className="space-y-3">
+                            {items.map((item) => (
+                              <div key={`${currency}-${item.department}`}>
+                                <div className="mb-1 flex flex-wrap justify-between gap-2 text-sm">
+                                  <span className="font-medium text-slate-700">
+                                    {item.department}
+                                  </span>
+
+                                  <span className="text-slate-600">
+                                    {formatAmount(
+                                      item.average_compensation,
+                                      currency
+                                    )}
+                                  </span>
+                                </div>
+
+                                <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                                  <div
+                                    className="h-full rounded-full bg-indigo-500"
+                                    style={{
+                                      width: `${getBarWidth(
+                                        item.average_compensation,
+                                        maximum
+                                      )}%`,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    }
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Employee Distribution */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6">
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold text-slate-800">
+            Employee Distribution
+          </h2>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Employee distribution across countries and departments
+          </p>
+        </div>
+
+        {analyticsLoading ? (
+          <p className="py-6 text-center text-sm text-slate-500">
+            Loading employee distribution...
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+
+            {/* Country distribution */}
+            <div>
+              <h3 className="mb-4 text-sm font-semibold text-slate-700">
+                By Country
+              </h3>
+
+              {employeeDistribution.by_country.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  No country data available.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {employeeDistribution.by_country.map((item) => {
+                    const maximum = Math.max(
+                      ...employeeDistribution.by_country.map(
+                        (country) => Number(country.employee_count || 0)
+                      )
+                    )
+
+                    return (
+                      <div key={item.iso_code}>
+                        <div className="mb-1 flex justify-between text-sm">
+                          <span className="text-slate-700">
+                            {item.country}
+                          </span>
+
+                          <span className="font-medium text-slate-600">
+                            {formatNumber(item.employee_count)}
+                          </span>
+                        </div>
+
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full bg-indigo-500"
+                            style={{
+                              width: `${getBarWidth(
+                                item.employee_count,
+                                maximum
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Department distribution */}
+            <div>
+              <h3 className="mb-4 text-sm font-semibold text-slate-700">
+                By Department
+              </h3>
+
+              {employeeDistribution.by_department.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  No department data available.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {employeeDistribution.by_department.map((item) => {
+                    const maximum = Math.max(
+                      ...employeeDistribution.by_department.map(
+                        (department) =>
+                          Number(department.employee_count || 0)
+                      )
+                    )
+
+                    return (
+                      <div key={item.department}>
+                        <div className="mb-1 flex justify-between text-sm">
+                          <span className="text-slate-700">
+                            {item.department}
+                          </span>
+
+                          <span className="font-medium text-slate-600">
+                            {formatNumber(item.employee_count)}
+                          </span>
+                        </div>
+
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full bg-emerald-500"
+                            style={{
+                              width: `${getBarWidth(
+                                item.employee_count,
+                                maximum
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Employee Report Summary */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <p className="text-sm text-slate-500">
@@ -179,7 +570,7 @@ function ReportsPage() {
           </p>
 
           <p className="mt-2 text-2xl font-bold text-slate-800">
-            {Number(pagination.total_count).toLocaleString('en-IN')}
+            {formatNumber(pagination.total_count)}
           </p>
         </div>
 
@@ -194,7 +585,7 @@ function ReportsPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Employee Report Filters */}
       <div className="rounded-xl border border-slate-200 bg-white p-6">
         <div className="mb-5">
           <h2 className="text-lg font-semibold text-slate-800">
@@ -208,6 +599,7 @@ function ReportsPage() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
 
+          {/* Search */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Search
@@ -226,6 +618,7 @@ function ReportsPage() {
             />
           </div>
 
+          {/* Country */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Country
@@ -247,6 +640,7 @@ function ReportsPage() {
             </select>
           </div>
 
+          {/* Department */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Department
@@ -268,6 +662,7 @@ function ReportsPage() {
             </select>
           </div>
 
+          {/* Job Title */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Job Title
@@ -289,6 +684,7 @@ function ReportsPage() {
             </select>
           </div>
 
+          {/* Employment Status */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Employment Status
@@ -306,7 +702,6 @@ function ReportsPage() {
               <option value="terminated">Terminated</option>
             </select>
           </div>
-
         </div>
 
         <div className="mt-5 flex flex-wrap gap-3">
@@ -329,16 +724,8 @@ function ReportsPage() {
         </div>
       </div>
 
-      {/* Error message */}
-      {error && (
-        <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
-          {error}
-        </div>
-      )}
-
-      {/* Employee report table */}
+      {/* Employee Report Table */}
       <div className="rounded-xl border border-slate-200 bg-white p-6">
-
         <div className="mb-5">
           <h2 className="text-lg font-semibold text-slate-800">
             Employee Report
@@ -366,7 +753,6 @@ function ReportsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1100px] text-left text-sm">
-
               <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Employee No.</th>
@@ -382,8 +768,10 @@ function ReportsPage() {
 
               <tbody className="divide-y divide-slate-100">
                 {employees.map((employee) => (
-                  <tr key={employee.id} className="hover:bg-slate-50">
-
+                  <tr
+                    key={employee.id}
+                    className="hover:bg-slate-50"
+                  >
                     <td className="px-4 py-4 font-medium text-slate-800">
                       {employee.employee_number}
                     </td>
@@ -425,11 +813,9 @@ function ReportsPage() {
                     <td className="px-4 py-4 text-slate-600">
                       {formatDate(employee.hired_on)}
                     </td>
-
                   </tr>
                 ))}
               </tbody>
-
             </table>
           </div>
         )}
@@ -437,17 +823,18 @@ function ReportsPage() {
         {/* Pagination */}
         {!loading && employees.length > 0 && (
           <div className="mt-5 flex flex-col gap-4 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-
             <p className="text-sm text-slate-500">
               Showing page {pagination.current_page} of {pagination.total_pages}
-              {' '}({Number(pagination.total_count).toLocaleString('en-IN')} employees)
+              {' '}({formatNumber(pagination.total_count)} employees)
             </p>
 
             <div className="flex gap-2">
               <button
                 type="button"
                 disabled={pagination.current_page <= 1}
-                onClick={() => fetchEmployees(pagination.current_page - 1)}
+                onClick={() =>
+                  fetchEmployees(pagination.current_page - 1)
+                }
                 className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Previous
@@ -455,17 +842,19 @@ function ReportsPage() {
 
               <button
                 type="button"
-                disabled={pagination.current_page >= pagination.total_pages}
-                onClick={() => fetchEmployees(pagination.current_page + 1)}
+                disabled={
+                  pagination.current_page >= pagination.total_pages
+                }
+                onClick={() =>
+                  fetchEmployees(pagination.current_page + 1)
+                }
                 className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Next
               </button>
             </div>
-
           </div>
         )}
-
       </div>
     </div>
   )
