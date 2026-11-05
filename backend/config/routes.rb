@@ -17,6 +17,12 @@ Rails.application.routes.draw do
       resources :countries, only: [:index]
       resources :departments, only: [:index]
       resources :job_titles, only: [:index]
+      resource :dashboard, only: [] do
+        get :overview
+        get :employee_distribution
+        get :salary_analytics
+        get :recent_salary_changes
+      end
     end
   end
 
