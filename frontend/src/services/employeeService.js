@@ -10,6 +10,15 @@ const employeeService = {
     const response = await api.get(`/employees/${id}`);
     return response.data.data;
   },
+
+  async exportEmployees(params = {}) {
+    const response = await api.get("/employees/export", {
+      params,
+      responseType: "blob",
+    });
+
+    return response.data;
+  },
 };
 
 export default employeeService;
