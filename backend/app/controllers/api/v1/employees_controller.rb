@@ -103,6 +103,48 @@ module Api
         end
       end
 
+      def export
+        authorize Employee, :index?
+
+        employees = EmployeeQuery.new(params).call
+
+        csv = Employees::CsvExportService.new(
+          employees: employees
+        ).call
+
+        send_data csv,
+                  filename: "acme_employees_#{Date.current}.csv",
+                  type: "text/csv; charset=utf-8",
+                  disposition: "attachment"
+      end
+
+      def import
+        authorize Employee, :import?
+
+        unless params[:file].present?
+          return render json: {
+            success: false,
+            error: "CSV file is required"
+          }, status: :unprocessable_entity
+        end
+
+        result = Employees::CsvImportService.new(
+          file: params[:file]
+        ).call
+
+        render json: {
+          success: true,
+          message: "Employee import completed",
+          data: result
+        }, status: :ok
+
+      rescue ArgumentError => e
+        render json: {
+          success: false,
+          error: e.message
+        }, status: :unprocessable_entity
+      end
+
       private
 
         def employee_params

@@ -7,6 +7,11 @@ Rails.application.routes.draw do
       delete "logout", to: "sessions#destroy"
 
       resources :employees, only: %i[index show create update] do
+        collection do
+          get :export
+          post :import
+        end
+
         resources :salary_histories, only: %i[index show create update] do
           member do
             post :cancel

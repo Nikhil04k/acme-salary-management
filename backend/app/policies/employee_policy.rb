@@ -22,6 +22,10 @@ class EmployeePolicy
     management_user?
   end
 
+  def import?
+    management_user?
+  end
+
   private
 
   def permitted_user?
