@@ -4,6 +4,8 @@ import { Link, useParams } from 'react-router-dom'
 import employeeService from '../services/employeeService'
 import salaryService from '../services/salaryService'
 import SalaryForm from '../components/SalaryForm'
+import referenceDataService from '../services/referenceDataService'
+import EmployeeFormModal from '../components/employees/EmployeeFormModal'
 
 function EmployeeDetailsPage() {
   const { id } = useParams()
@@ -18,6 +20,15 @@ function EmployeeDetailsPage() {
   const [savingSalary, setSavingSalary] = useState(false)
   const [salaryError, setSalaryError] = useState('')
   const [salarySuccess, setSalarySuccess] = useState('')
+
+  const [showEmployeeForm, setShowEmployeeForm] = useState(false)
+  const [savingEmployee, setSavingEmployee] = useState(false)
+  const [employeeSuccess, setEmployeeSuccess] = useState('')
+  const [employeeError, setEmployeeError] = useState('')
+
+  const [countries, setCountries] = useState([])
+  const [departments, setDepartments] = useState([])
+  const [jobTitles, setJobTitles] = useState([])
 
   useEffect(() => {
     const fetchEmployee = async () => {
@@ -40,9 +51,58 @@ function EmployeeDetailsPage() {
     fetchEmployee()
   }, [id])
 
+  useEffect(() => {
+    const fetchReferenceData = async () => {
+      try {
+        const [countryData, departmentData, jobTitleData] =
+          await Promise.all([
+            referenceDataService.getCountries(),
+            referenceDataService.getDepartments(),
+            referenceDataService.getJobTitles(),
+          ])
+
+        setCountries(countryData)
+        setDepartments(departmentData)
+        setJobTitles(jobTitleData)
+      } catch (err) {
+        console.error(
+          'Unable to load reference data:',
+          err.response?.data || err.message
+        )
+      }
+    }
+
+    fetchReferenceData()
+  }, [])
+
   const refreshEmployee = async () => {
     const data = await employeeService.getEmployee(id)
     setDetails(data)
+  }
+
+  const handleEmployeeUpdate = async (attributes) => {
+    setSavingEmployee(true)
+    setEmployeeError('')
+    setEmployeeSuccess('')
+
+    try {
+      await employeeService.updateEmployee(id, attributes)
+
+      await refreshEmployee()
+
+      setShowEmployeeForm(false)
+      setEmployeeSuccess('Employee information updated successfully.')
+    } catch (err) {
+      setEmployeeError(
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        'Unable to update employee.'
+      )
+
+      throw err
+    } finally {
+      setSavingEmployee(false)
+    }
   }
 
   const handleSalarySubmit = async (attributes) => {
@@ -176,6 +236,18 @@ function EmployeeDetailsPage() {
   return (
     <div className="space-y-6">
 
+      {employeeSuccess && (
+        <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
+          {employeeSuccess}
+        </div>
+      )}
+
+      {employeeError && !showEmployeeForm && (
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          {employeeError}
+        </div>
+      )}
+
       {/* Salary success message */}
       {salarySuccess && (
         <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
@@ -216,14 +288,28 @@ function EmployeeDetailsPage() {
             </p>
           </div>
 
-          <span
-            className={`w-fit rounded-full px-4 py-2 text-sm font-medium capitalize ${
-              statusStyles[employee.employment_status] ||
-              'bg-slate-100 text-slate-600'
-            }`}
-          >
-            {employee.employment_status}
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span
+              className={`rounded-full px-4 py-2 text-sm font-medium capitalize ${
+                statusStyles[employee.employment_status] ||
+                'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {employee.employment_status}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEmployeeError('')
+                setEmployeeSuccess('')
+                setShowEmployeeForm(true)
+              }}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              Edit Employee
+            </button>
+          </div>
 
         </div>
       </div>
@@ -509,7 +595,18 @@ function EmployeeDetailsPage() {
           </div>
         </div>
       )}
-
+      <EmployeeFormModal
+        open={showEmployeeForm}
+        onClose={() => {
+          setShowEmployeeForm(false)
+          setEmployeeError('')
+        }}
+        onSubmit={handleEmployeeUpdate}
+        countries={countries}
+        departments={departments}
+        jobTitles={jobTitles}
+        initialData={employee}
+      />
     </div>
   )
 }

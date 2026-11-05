@@ -21,20 +21,39 @@ function EmployeeFormModal({
   countries,
   departments,
   jobTitles,
+  initialData = null,
 }) {
   const [form, setForm] = useState(initialForm)
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
+  const isEditing = Boolean(initialData)
+
   useEffect(() => {
-    if (open) {
-      setForm(initialForm)
-      setErrors({})
-      setSubmitError('')
-      setSubmitting(false)
-    }
-  }, [open])
+    if (!open) return
+
+    setForm(
+      initialData
+        ? {
+            employee_number: initialData.employee_number || '',
+            first_name: initialData.first_name || '',
+            last_name: initialData.last_name || '',
+            email: initialData.email || '',
+            country_id: String(initialData.country?.id || ''),
+            department_id: String(initialData.department?.id || ''),
+            job_title_id: String(initialData.job_title?.id || ''),
+            employment_status: initialData.employment_status || 'active',
+            hired_on: initialData.hired_on || '',
+            terminated_on: initialData.terminated_on || '',
+          }
+        : initialForm
+    )
+
+    setErrors({})
+    setSubmitError('')
+    setSubmitting(false)
+  }, [open, initialData])
 
   if (!open) return null
 
@@ -141,7 +160,7 @@ function EmployeeFormModal({
         setSubmitError(
           responseData?.error ||
           responseData?.message ||
-          'Unable to create employee. Please try again.'
+          `Unable to ${isEditing ? 'update' : 'create'} employee. Please try again.`
         )
       }
     } finally {
@@ -185,11 +204,13 @@ function EmployeeFormModal({
               id="employee-form-title"
               className="text-xl font-bold text-slate-800"
             >
-              Add Employee
+              {isEditing ? 'Edit Employee' : 'Add Employee'}
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Enter the employee's information
+              {isEditing
+                ? 'Update employee information'
+                : "Enter the employee's information"}
             </p>
           </div>
 
@@ -206,14 +227,12 @@ function EmployeeFormModal({
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-6 p-6">
-
             {submitError && (
               <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
                 {submitError}
               </div>
             )}
 
-            {/* Personal information */}
             <section>
               <h3 className="mb-4 text-sm font-semibold text-slate-800">
                 Personal Information
@@ -230,7 +249,6 @@ function EmployeeFormModal({
                     value={form.employee_number}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="EMP-10001"
                   />
 
                   {renderError('employee_number')}
@@ -247,7 +265,6 @@ function EmployeeFormModal({
                     value={form.email}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="employee@acme.com"
                   />
 
                   {renderError('email')}
@@ -263,7 +280,6 @@ function EmployeeFormModal({
                     value={form.first_name}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="First name"
                   />
 
                   {renderError('first_name')}
@@ -279,7 +295,6 @@ function EmployeeFormModal({
                     value={form.last_name}
                     onChange={handleChange}
                     className={inputClass}
-                    placeholder="Last name"
                   />
 
                   {renderError('last_name')}
@@ -287,7 +302,6 @@ function EmployeeFormModal({
               </div>
             </section>
 
-            {/* Organization information */}
             <section>
               <h3 className="mb-4 text-sm font-semibold text-slate-800">
                 Organization Information
@@ -365,7 +379,6 @@ function EmployeeFormModal({
               </div>
             </section>
 
-            {/* Employment information */}
             <section>
               <h3 className="mb-4 text-sm font-semibold text-slate-800">
                 Employment Information
@@ -445,7 +458,9 @@ function EmployeeFormModal({
               disabled={submitting}
               className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
-              {submitting ? 'Creating...' : 'Create Employee'}
+              {submitting
+                ? isEditing ? 'Updating...' : 'Creating...'
+                : isEditing ? 'Update Employee' : 'Create Employee'}
             </button>
           </div>
         </form>
