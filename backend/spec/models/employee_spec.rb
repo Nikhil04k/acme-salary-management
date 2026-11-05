@@ -47,7 +47,7 @@ RSpec.describe Employee, type: :model do
     it "requires last name" do
       employee.last_name = nil
 
-      expect(employee).not_to be_valid
+      expect(employee).to be_valid
     end
 
     it "requires email" do

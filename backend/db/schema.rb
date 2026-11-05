@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_11_03_162802) do
+ActiveRecord::Schema[8.0].define(version: 2026_11_05_091714) do
   create_table "audit_logs", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "auditable_type", null: false
@@ -50,7 +50,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_11_03_162802) do
   create_table "employees", charset: "utf8mb4", collation: "utf8mb4_0900_ai_ci", force: :cascade do |t|
     t.string "employee_number", limit: 20, null: false
     t.string "first_name", limit: 100, null: false
-    t.string "last_name", limit: 100, null: false
+    t.string "last_name", limit: 100
     t.string "email", null: false
     t.bigint "country_id", null: false
     t.bigint "department_id", null: false

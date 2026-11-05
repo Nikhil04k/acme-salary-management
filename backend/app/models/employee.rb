@@ -7,22 +7,19 @@ class Employee < ApplicationRecord
 
   has_many :salary_histories, dependent: :restrict_with_error
 
-  validates :employee_number,
-            presence: true,
-            uniqueness: true
+  validates :employee_number, presence: true, uniqueness: true
 
-  validates :first_name, :last_name, :email, :hired_on,
-            presence: true
+  validates :first_name, :email, :hired_on, presence: true
 
-  validates :email,
-            uniqueness: { case_sensitive: false },
-            format: { with: URI::MailTo::EMAIL_REGEXP }
+  validates :email, uniqueness: { case_sensitive: false }, format: { with: URI::MailTo::EMAIL_REGEXP }
 
-  validates :employment_status,
-            presence: true,
-            inclusion: { in: STATUSES }
+  validates :employment_status, presence: true, inclusion: { in: STATUSES }
 
   validate :termination_date_must_be_valid
+
+  def full_name
+    [first_name, last_name].compact_blank.join(" ")
+  end
 
   private
 
