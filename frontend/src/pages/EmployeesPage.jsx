@@ -1,8 +1,9 @@
-
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import employeeService from '../services/employeeService'
 import referenceDataService from '../services/referenceDataService'
+import EmployeeFormModal from '../components/employees/EmployeeFormModal'
+
 
 function EmployeesPage() {
   const [employees, setEmployees] = useState([])
@@ -26,6 +27,26 @@ function EmployeesPage() {
   const [jobTitleId, setJobTitleId] = useState('')
 
   const [searchInput, setSearchInput] = useState('')
+
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
+
+  const handleCreateEmployee = async (employeeData) => {
+    await employeeService.createEmployee(employeeData)
+
+    setShowCreateModal(false)
+    setSuccessMessage('Employee created successfully.')
+
+    setPage(1)
+    setSearchInput('')
+    setSearch('')
+    setStatus('')
+    setCountryId('')
+    setDepartmentId('')
+    setJobTitleId('')
+    setSortBy('employee_number')
+    setSortOrder('asc')
+  }
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -122,14 +143,42 @@ function EmployeesPage() {
   return (
     <div className="space-y-6">
       {/* Page heading */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">
-          Employees
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Manage and view all organization employees
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">
+            Employees
+          </h1>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Manage and view all organization employees
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSuccessMessage('')
+            setShowCreateModal(true)
+          }}
+          className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
+        >
+          + Add Employee
+        </button>
       </div>
+
+      {successMessage && (
+        <div className="flex items-center justify-between rounded-lg bg-green-50 p-4 text-sm text-green-700">
+          <span>{successMessage}</span>
+
+          <button
+            type="button"
+            onClick={() => setSuccessMessage('')}
+            className="font-medium"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Search and filters */}
       <div className="grid grid-cols-1 gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:grid-cols-2 xl:grid-cols-4">
@@ -358,6 +407,15 @@ function EmployeesPage() {
           </div>
         )}
       </div>
+
+      <EmployeeFormModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateEmployee}
+        countries={countries}
+        departments={departments}
+        jobTitles={jobTitles}
+      />
     </div>
   )
 }
