@@ -43,6 +43,13 @@ module SalaryHistories
           previous_salary.update!(
             effective_to: effective_from
           )
+
+          AuditLogging::CreateService.new(
+            user: @created_by,
+            auditable: previous_salary,
+            action: "update",
+            audited_changes: previous_salary.saved_changes.except("updated_at")
+          ).call
         end
 
         attributes = @attributes.except(:effective_to).merge(

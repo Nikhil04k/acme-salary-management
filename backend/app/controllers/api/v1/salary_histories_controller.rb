@@ -108,12 +108,7 @@ module Api
           :annual_allowances,
           :currency_code,
           :change_reason,
-          :effective_from,
-          :effective_to,
-          :employee_id,
-          :created_by_id,
-          :cancelled_at,
-          :cancelled_by_id
+          :effective_from
         )
       end
     end
