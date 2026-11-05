@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import employeeService from '../services/employeeService'
 import referenceDataService from '../services/referenceDataService'
 import EmployeeFormModal from '../components/employees/EmployeeFormModal'
-
+import EmployeeCsvImportModal from '../components/employees/EmployeeCsvImportModal'
 
 function EmployeesPage() {
   const [employees, setEmployees] = useState([])
@@ -31,6 +31,9 @@ function EmployeesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
 
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+
   const handleCreateEmployee = async (employeeData) => {
     await employeeService.createEmployee(employeeData)
 
@@ -46,6 +49,16 @@ function EmployeesPage() {
     setJobTitleId('')
     setSortBy('employee_number')
     setSortOrder('asc')
+  }
+
+  const handleImportComplete = (result) => {
+    setSuccessMessage(
+      `CSV import completed: ${result.imported_count} employees imported, ${result.failed_count} rows failed.`
+    )
+
+    if (result.imported_count > 0) {
+      setRefreshKey((current) => current + 1)
+    }
   }
 
   useEffect(() => {
@@ -79,7 +92,7 @@ function EmployeesPage() {
     }
 
     fetchEmployees()
-  }, [search, status, countryId, departmentId, jobTitleId, sortBy, sortOrder, page])
+  }, [search, status, countryId, departmentId, jobTitleId, sortBy, sortOrder, page, refreshKey])
 
   useEffect(() => {
     const fetchReferenceData = async () => {
@@ -154,16 +167,29 @@ function EmployeesPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setSuccessMessage('')
-            setShowCreateModal(true)
-          }}
-          className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          + Add Employee
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setSuccessMessage('')
+              setShowImportModal(true)
+            }}
+            className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Import CSV
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSuccessMessage('')
+              setShowCreateModal(true)
+            }}
+            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            + Add Employee
+          </button>
+        </div>
       </div>
 
       {successMessage && (
@@ -415,6 +441,12 @@ function EmployeesPage() {
         countries={countries}
         departments={departments}
         jobTitles={jobTitles}
+      />
+
+      <EmployeeCsvImportModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportComplete={handleImportComplete}
       />
     </div>
   )
