@@ -1,7 +1,7 @@
 FactoryBot.define do
   factory :employee do
-    sequence(:employee_number) { |n| "EMP#{n}" }
-    sequence(:email) { |n| "employee#{n}@example.com" }
+    sequence(:employee_number) { |n| "EMP#{n}_#{SecureRandom.hex(4)}" }
+sequence(:email) { |n| "employee#{n}_#{SecureRandom.hex(4)}@example.com" }
 
     first_name { "John" }
     last_name { "Doe" }
