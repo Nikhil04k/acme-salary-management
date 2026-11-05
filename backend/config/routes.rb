@@ -29,6 +29,7 @@ Rails.application.routes.draw do
         get :salary_analytics
         get :recent_salary_changes
       end
+      resources :currencies, only: :index
     end
   end
 

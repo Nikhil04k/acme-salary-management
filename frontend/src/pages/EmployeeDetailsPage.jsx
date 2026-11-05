@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import employeeService from '../services/employeeService'
+import salaryService from '../services/salaryService'
+import SalaryForm from '../components/SalaryForm'
 
 function EmployeeDetailsPage() {
   const { id } = useParams()
@@ -9,6 +11,13 @@ function EmployeeDetailsPage() {
   const [details, setDetails] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  // Salary management state
+  const [showSalaryForm, setShowSalaryForm] = useState(false)
+  const [editingSalary, setEditingSalary] = useState(null)
+  const [savingSalary, setSavingSalary] = useState(false)
+  const [salaryError, setSalaryError] = useState('')
+  const [salarySuccess, setSalarySuccess] = useState('')
 
   useEffect(() => {
     const fetchEmployee = async () => {
@@ -31,8 +40,91 @@ function EmployeeDetailsPage() {
     fetchEmployee()
   }, [id])
 
+  const refreshEmployee = async () => {
+    const data = await employeeService.getEmployee(id)
+    setDetails(data)
+  }
+
+  const handleSalarySubmit = async (attributes) => {
+    setSavingSalary(true)
+    setSalaryError('')
+    setSalarySuccess('')
+
+    try {
+      if (editingSalary) {
+        await salaryService.updateSalary(
+          id,
+          editingSalary.id,
+          attributes
+        )
+
+        setSalarySuccess('Salary record updated successfully.')
+      } else {
+        await salaryService.createSalary(id, attributes)
+
+        setSalarySuccess('Salary record created successfully.')
+      }
+
+      await refreshEmployee()
+
+      setShowSalaryForm(false)
+      setEditingSalary(null)
+    } catch (err) {
+      setSalaryError(
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        'Unable to save salary record.'
+      )
+    } finally {
+      setSavingSalary(false)
+    }
+  }
+
+  const handleEditSalary = (salary) => {
+    setEditingSalary(salary)
+    setSalaryError('')
+    setSalarySuccess('')
+    setShowSalaryForm(true)
+  }
+
+  const handleCancelSalary = async (salary) => {
+    const confirmed = window.confirm(
+      'Are you sure you want to cancel this scheduled salary record?'
+    )
+
+    if (!confirmed) return
+
+    setSalaryError('')
+    setSalarySuccess('')
+
+    try {
+      await salaryService.cancelSalary(id, salary.id)
+      await refreshEmployee()
+
+      setSalarySuccess(
+        'Scheduled salary record cancelled successfully.'
+      )
+    } catch (err) {
+      setSalaryError(
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        'Unable to cancel salary record.'
+      )
+    }
+  }
+
+  const handleCloseSalaryForm = () => {
+    setShowSalaryForm(false)
+    setEditingSalary(null)
+    setSalaryError('')
+  }
+
   if (loading) {
-    return <p className="text-slate-500">Loading employee details...</p>
+    return (
+      <p className="text-slate-500">
+        Loading employee details...
+      </p>
+    )
   }
 
   if (error) {
@@ -70,8 +162,33 @@ function EmployeeDetailsPage() {
     }).format(Number(amount)) + ` ${currency}`
   }
 
+  // ISO date strings can be compared lexicographically.
+  // Generate today's date using local time.
+  const today = (() => {
+    const date = new Date()
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+
+    return `${year}-${month}-${day}`
+  })()
+
   return (
     <div className="space-y-6">
+
+      {/* Salary success message */}
+      {salarySuccess && (
+        <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
+          {salarySuccess}
+        </div>
+      )}
+
+      {/* Salary error message */}
+      {salaryError && !showSalaryForm && (
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          {salaryError}
+        </div>
+      )}
 
       {/* Back navigation */}
       <Link
@@ -99,10 +216,12 @@ function EmployeeDetailsPage() {
             </p>
           </div>
 
-          <span className={`w-fit rounded-full px-4 py-2 text-sm font-medium capitalize ${
-            statusStyles[employee.employment_status] ||
-            'bg-slate-100 text-slate-600'
-          }`}>
+          <span
+            className={`w-fit rounded-full px-4 py-2 text-sm font-medium capitalize ${
+              statusStyles[employee.employment_status] ||
+              'bg-slate-100 text-slate-600'
+            }`}
+          >
             {employee.employment_status}
           </span>
 
@@ -172,7 +291,9 @@ function EmployeeDetailsPage() {
           <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
 
             <div>
-              <p className="text-sm text-slate-500">Annual Base Salary</p>
+              <p className="text-sm text-slate-500">
+                Annual Base Salary
+              </p>
               <p className="mt-2 text-xl font-bold text-slate-800">
                 {formatAmount(
                   current_salary.annual_base_salary,
@@ -182,7 +303,9 @@ function EmployeeDetailsPage() {
             </div>
 
             <div>
-              <p className="text-sm text-slate-500">Annual Bonus</p>
+              <p className="text-sm text-slate-500">
+                Annual Bonus
+              </p>
               <p className="mt-2 text-xl font-bold text-slate-800">
                 {formatAmount(
                   current_salary.annual_bonus,
@@ -192,7 +315,9 @@ function EmployeeDetailsPage() {
             </div>
 
             <div>
-              <p className="text-sm text-slate-500">Annual Allowances</p>
+              <p className="text-sm text-slate-500">
+                Annual Allowances
+              </p>
               <p className="mt-2 text-xl font-bold text-slate-800">
                 {formatAmount(
                   current_salary.annual_allowances,
@@ -202,7 +327,9 @@ function EmployeeDetailsPage() {
             </div>
 
             <div>
-              <p className="text-sm text-slate-500">Effective From</p>
+              <p className="text-sm text-slate-500">
+                Effective From
+              </p>
               <p className="mt-2 text-xl font-bold text-slate-800">
                 {formatDate(current_salary.effective_from)}
               </p>
@@ -223,14 +350,30 @@ function EmployeeDetailsPage() {
 
       {/* Salary history */}
       <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-800">
-            Salary History
-          </h2>
 
-          <p className="mt-1 text-sm text-slate-500">
-            Historical compensation records
-          </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">
+              Salary History
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Historical and scheduled compensation records
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setEditingSalary(null)
+              setSalaryError('')
+              setSalarySuccess('')
+              setShowSalaryForm(true)
+            }}
+            className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            + Add Salary
+          </button>
         </div>
 
         {salary_history.length === 0 ? (
@@ -244,7 +387,8 @@ function EmployeeDetailsPage() {
           </div>
         ) : (
           <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[750px] text-left text-sm">
+            <table className="w-full min-w-[900px] text-left text-sm">
+
               <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Effective From</th>
@@ -253,51 +397,118 @@ function EmployeeDetailsPage() {
                   <th className="px-4 py-3">Bonus</th>
                   <th className="px-4 py-3">Allowances</th>
                   <th className="px-4 py-3">Change Reason</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-100">
-                {salary_history.map((salary) => (
-                  <tr key={salary.id}>
-                    <td className="px-4 py-4">
-                      {formatDate(salary.effective_from)}
-                    </td>
+                {salary_history.map((salary) => {
+                  const isFutureSalary = salary.effective_from > today
 
-                    <td className="px-4 py-4">
-                      {formatDate(salary.effective_to)}
-                    </td>
+                  return (
+                    <tr key={salary.id}>
+                      <td className="px-4 py-4">
+                        {formatDate(salary.effective_from)}
+                      </td>
 
-                    <td className="px-4 py-4 font-medium">
-                      {formatAmount(
-                        salary.annual_base_salary,
-                        salary.currency.code
-                      )}
-                    </td>
+                      <td className="px-4 py-4">
+                        {formatDate(salary.effective_to)}
+                      </td>
 
-                    <td className="px-4 py-4">
-                      {formatAmount(
-                        salary.annual_bonus,
-                        salary.currency.code
-                      )}
-                    </td>
+                      <td className="px-4 py-4 font-medium">
+                        {formatAmount(
+                          salary.annual_base_salary,
+                          salary.currency.code
+                        )}
+                      </td>
 
-                    <td className="px-4 py-4">
-                      {formatAmount(
-                        salary.annual_allowances,
-                        salary.currency.code
-                      )}
-                    </td>
+                      <td className="px-4 py-4">
+                        {formatAmount(
+                          salary.annual_bonus,
+                          salary.currency.code
+                        )}
+                      </td>
 
-                    <td className="px-4 py-4 text-slate-600">
-                      {salary.change_reason || '—'}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-4 py-4">
+                        {formatAmount(
+                          salary.annual_allowances,
+                          salary.currency.code
+                        )}
+                      </td>
+
+                      <td className="px-4 py-4 text-slate-600">
+                        {salary.change_reason || '—'}
+                      </td>
+
+                      <td className="px-4 py-4">
+                        {isFutureSalary ? (
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleEditSalary(salary)}
+                              className="font-medium text-indigo-600 hover:text-indigo-800"
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCancelSalary(salary)}
+                              className="font-medium text-red-600 hover:text-red-800"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
+
             </table>
           </div>
         )}
       </div>
+
+      {/* Salary form modal */}
+      {showSalaryForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-slate-800">
+                {editingSalary ? 'Edit Salary' : 'Add Salary'}
+              </h2>
+
+              <button
+                type="button"
+                onClick={handleCloseSalaryForm}
+                disabled={savingSalary}
+                className="text-2xl text-slate-400 hover:text-slate-700 disabled:opacity-50"
+              >
+                &times;
+              </button>
+            </div>
+
+            {salaryError && (
+              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                {salaryError}
+              </div>
+            )}
+
+            <SalaryForm
+              initialData={editingSalary}
+              onSubmit={handleSalarySubmit}
+              onCancel={handleCloseSalaryForm}
+              loading={savingSalary}
+            />
+
+          </div>
+        </div>
+      )}
 
     </div>
   )

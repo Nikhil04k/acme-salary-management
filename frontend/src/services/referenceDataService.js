@@ -15,6 +15,11 @@ const referenceDataService = {
     const response = await api.get("/job_titles");
     return response.data.data;
   },
+
+  async getCurrencies() {
+    const response = await api.get("/currencies");
+    return response.data.data;
+  },
 };
 
 export default referenceDataService;
