@@ -1,5 +1,11 @@
+
+require "set"
+
+# ==================================================
 # Countries
-countries = [
+# ==================================================
+
+countries_data = [
   { name: "India", iso_code: "IN" },
   { name: "United States", iso_code: "US" },
   { name: "United Kingdom", iso_code: "GB" },
@@ -12,14 +18,17 @@ countries = [
   { name: "Bahrain", iso_code: "BH" }
 ]
 
-countries.each do |attributes|
+countries_data.each do |attributes|
   Country.find_or_create_by!(iso_code: attributes[:iso_code]) do |country|
     country.name = attributes[:name]
   end
 end
 
+# ==================================================
 # Departments
-departments = [
+# ==================================================
+
+departments_data = [
   "Engineering",
   "Human Resources",
   "Finance",
@@ -32,12 +41,15 @@ departments = [
   "IT"
 ]
 
-departments.each do |name|
+departments_data.each do |name|
   Department.find_or_create_by!(name: name)
 end
 
+# ==================================================
 # Job Titles
-job_titles = [
+# ==================================================
+
+job_titles_data = [
   "Software Engineer",
   "Senior Software Engineer",
   "Engineering Manager",
@@ -60,12 +72,15 @@ job_titles = [
   "IT Administrator"
 ]
 
-job_titles.each do |name|
+job_titles_data.each do |name|
   JobTitle.find_or_create_by!(name: name)
 end
 
+# ==================================================
 # Currencies
-currencies = [
+# ==================================================
+
+currencies_data = [
   { code: "INR", name: "Indian Rupee", decimal_places: 2 },
   { code: "USD", name: "US Dollar", decimal_places: 2 },
   { code: "GBP", name: "British Pound", decimal_places: 2 },
@@ -78,7 +93,7 @@ currencies = [
   { code: "BHD", name: "Bahraini Dinar", decimal_places: 3 }
 ]
 
-currencies.each do |attributes|
+currencies_data.each do |attributes|
   Currency.find_or_create_by!(code: attributes[:code]) do |currency|
     currency.name = attributes[:name]
     currency.decimal_places = attributes[:decimal_places]
@@ -87,47 +102,35 @@ end
 
 puts "Reference data seeded successfully!"
 
-# Seed users
-users = [
-  {
-    email: "admin@acme.com",
-    role: "admin"
-  },
-  {
-    email: "user1@acme.com",
-    role: "hr_manager"
-  },
-  {
-    email: "viewer@acme.com",
-    role: "viewer"
-  }
-]
-
-users.each do |attributes|
-  user = User.find_or_initialize_by(email: attributes[:email])
-  user.role = attributes[:role]
-
-  if user.new_record?
-    user.password = ENV.fetch("SEED_USER_PASSWORD") {
-      "LocalDev@123"
-    }
-    user.password_confirmation = user.password
-  end
-
-  user.save!
-end
-
-puts "Users seeded successfully!"
-
-# --------------------------------------------------
-# Employees - Generate 10,000 total employees
-# --------------------------------------------------
-
-puts "Seeding employees..."
+# ==================================================
+# Validate Required Data
+# ==================================================
 
 countries = Country.order(:iso_code).to_a
 departments = Department.order(:name).to_a
 job_titles = JobTitle.order(:name).to_a
+currencies_by_code = Currency.all.index_by(&:code)
+
+raise "Countries are missing" if countries.empty?
+raise "Departments are missing" if departments.empty?
+raise "Job titles are missing" if job_titles.empty?
+
+required_currencies = %w[INR USD GBP EUR CAD AUD SGD JPY AED BHD]
+missing_currencies = required_currencies - currencies_by_code.keys
+
+if missing_currencies.any?
+  raise "Missing currencies: #{missing_currencies.join(', ')}"
+end
+
+hr_user = User.find_by!(role: "hr_manager")
+
+puts "Precondition checks passed."
+
+# ==================================================
+# Employees - Generate 10,000 Employees
+# ==================================================
+
+puts "Seeding employees..."
 
 first_names = %w[
   Rahul Amit Priya Neha Ankit Sneha
@@ -155,8 +158,9 @@ hire_end_date = Date.new(2025, 12, 31)
 
 hire_days = (hire_end_date - hire_start_date).to_i
 
-(1..9_999).each do |number|
+(1..10_000).each do |number|
   employee_number = format("ACME%05d", number)
+
   next if existing_employee_numbers.include?(employee_number)
 
   hired_on = hire_start_date + random.rand(hire_days + 1)
@@ -177,7 +181,9 @@ hire_days = (hire_end_date - hire_start_date).to_i
 
   if employment_status == "terminated"
     available_days = (Date.current - hired_on).to_i
-    terminated_on = hired_on + random.rand(30..[available_days, 730].min)
+
+    terminated_on = hired_on +
+      random.rand(30..[available_days, 730].min)
   end
 
   first_name = first_names[random.rand(first_names.length)]
@@ -201,20 +207,18 @@ end
 
 employee_rows.each_slice(1_000) do |batch|
   Employee.insert_all!(batch)
+  puts "Inserted employee batch. Total so far: #{Employee.count}"
 end
 
 puts "Employee seeding completed."
 puts "Total employees: #{Employee.count}"
 
-# --------------------------------------------------
-# Salary Histories - Generate initial salary records
-# --------------------------------------------------
+# ==================================================
+# Salary Histories - Generate Initial Salary Records
+# ==================================================
 
 puts "Seeding initial salary histories..."
 
-hr_user = User.find_by!(email: "user1@acme.com")
-
-# Assign each country its local currency and annual salary range.
 salary_config = {
   "IN" => { currency: "INR", min: 300_000, max: 3_000_000 },
   "US" => { currency: "USD", min: 50_000, max: 250_000 },
@@ -228,9 +232,6 @@ salary_config = {
   "BH" => { currency: "BHD", min: 12_000, max: 60_000 }
 }
 
-currencies_by_code = Currency.all.index_by(&:code)
-
-# Avoid creating duplicate initial salary records on reruns.
 existing_employee_ids = SalaryHistory.pluck(:employee_id).to_set
 
 random = Random.new(20261104)
@@ -275,7 +276,25 @@ end
 
 salary_rows.each_slice(1_000) do |batch|
   SalaryHistory.insert_all!(batch)
+  puts "Inserted salary batch. Total so far: #{SalaryHistory.count}"
 end
 
 puts "Salary history seeding completed."
 puts "Total salary histories: #{SalaryHistory.count}"
+
+# ==================================================
+# Final Summary
+# ==================================================
+
+puts "\n========== SEED SUMMARY =========="
+
+puts "Users: #{User.count}"
+puts "Countries: #{Country.count}"
+puts "Departments: #{Department.count}"
+puts "Job Titles: #{JobTitle.count}"
+puts "Currencies: #{Currency.count}"
+puts "Employees: #{Employee.count}"
+puts "Salary Histories: #{SalaryHistory.count}"
+
+puts "=================================="
+puts "Database seeding completed successfully!"
